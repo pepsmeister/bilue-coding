@@ -31,6 +31,7 @@ const generateMockAddresses = (postcode: string, streetNumber: string) => {
   if (postcodeMapping) {
     return [
       {
+        id: '1',
         city: postcodeMapping,
         houseNumber: '1',
         postcode,
@@ -39,6 +40,7 @@ const generateMockAddresses = (postcode: string, streetNumber: string) => {
         long: Math.random()
       },
       {
+        id: '2',
         city: postcodeMapping,
         houseNumber: '2',
         postcode,
@@ -47,6 +49,7 @@ const generateMockAddresses = (postcode: string, streetNumber: string) => {
         long: Math.random()
       },
       {
+        id: '3',
         city: postcodeMapping,
         houseNumber: '3',
         postcode,

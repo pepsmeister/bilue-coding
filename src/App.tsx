@@ -1,4 +1,5 @@
 import React from "react";
+import useFormFields from "./ui/hooks/useFormFields";
 
 import Address from "@/components/Address/Address";
 import AddressBook from "@/components/AddressBook/AddressBook";
@@ -8,70 +9,76 @@ import Radio from "@/components/Radio/Radio";
 import Section from "@/components/Section/Section";
 import useAddressBook from "@/hooks/useAddressBook";
 
+import ErrorMessage from "./ui/components/ErrorMessage/ErrorMessage";
+
 import styles from "./App.module.css";
 import { Address as AddressType } from "./types";
+import { baseUrl } from "./config/api.config";
 
 function App() {
-  /**
-   * Form fields states
-   * TODO: Write a custom hook to set form fields in a more generic way:
-   * - Hook must expose an onChange handler to be used by all <InputText /> and <Radio /> components
-   * - Hook must expose all text form field values, like so: { postCode: '', houseNumber: '', ...etc }
-   * - Remove all individual React.useState
-   * - Remove all individual onChange handlers, like handlePostCodeChange for example
-   */
-  const [postCode, setPostCode] = React.useState("");
-  const [houseNumber, setHouseNumber] = React.useState("");
-  const [firstName, setFirstName] = React.useState("");
-  const [lastName, setLastName] = React.useState("");
-  const [selectedAddress, setSelectedAddress] = React.useState("");
+    const {
+    fields: { postCode, houseNumber, firstName, lastName, selectedAddress },
+    onChange: handleFieldChange,
+    setFields,
+  } = useFormFields({
+    postCode: "",
+    houseNumber: "",
+    firstName: "",
+    lastName: "",
+    selectedAddress: "",
+  });
   /**
    * Results states
    */
   const [error, setError] = React.useState<undefined | string>(undefined);
   const [addresses, setAddresses] = React.useState<AddressType[]>([]);
+  const [loading, setLoading] = React.useState(false);
   /**
    * Redux actions
    */
   const { addAddress } = useAddressBook();
 
+  const clearFields = () => {
+    setFields({
+      postCode: "",
+      houseNumber: "",
+      firstName: "",
+      lastName: "",
+      selectedAddress: "",
+    })
+  }
   /**
-   * Text fields onChange handlers
-   */
-  const handlePostCodeChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setPostCode(e.target.value);
-
-  const handleHouseNumberChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setHouseNumber(e.target.value);
-
-  const handleFirstNameChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setFirstName(e.target.value);
-
-  const handleLastNameChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setLastName(e.target.value);
-
-  const handleSelectedAddressChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => setSelectedAddress(e.target.value);
-
-  /** TODO: Fetch addresses based on houseNumber and postCode using the local BE api
-   * - Example URL of API: ${process.env.NEXT_PUBLIC_URL}/api/getAddresses?postcode=1345&streetnumber=350
-   * - Ensure you provide a BASE URL for api endpoint for grading purposes!
-   * - Handle errors if they occur
-   * - Handle successful response by updating the `addresses` in the state using `setAddresses`
-   * - Make sure to add the houseNumber to each found address in the response using `transformAddress()` function
-   * - Ensure to clear previous search results on each click
-   * - Bonus: Add a loading state in the UI while fetching addresses
+   * Fetch addresses based on houseNumber and postCode using the local BE api
    */
   const handleAddressSubmit = async (e: React.ChangeEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFields((prev) => ({ ...prev, selectedAddress: "" }));
+    setError(undefined);
+    setAddresses([]);
+    setLoading(true);
+    try {
+      const url = `${baseUrl}/api/getAddresses?postcode=${encodeURIComponent(postCode)}&streetnumber=${encodeURIComponent(houseNumber)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        setError('Failed to fetch addresses');
+        throw new Error('Failed to fetch addresses');
+      }
+      const data = await res.json();
+      setAddresses(data.details);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while fetching addresses');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /** TODO: Add basic validation to ensure first name and last name fields aren't empty
-   * Use the following error message setError("First name and last name fields mandatory!")
-   */
   const handlePersonSubmit = (e: React.ChangeEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First name and last name fields mandatory!");
+      return;
+    }
 
     if (!selectedAddress || !addresses.length) {
       setError(
@@ -92,6 +99,7 @@ function App() {
     addAddress({ ...foundAddress, firstName, lastName });
   };
 
+
   return (
     <main>
       <Section>
@@ -109,7 +117,7 @@ function App() {
             <div className={styles.formRow}>
               <InputText
                 name="postCode"
-                onChange={handlePostCodeChange}
+                onChange={handleFieldChange}
                 placeholder="Post Code"
                 value={postCode}
               />
@@ -117,14 +125,15 @@ function App() {
             <div className={styles.formRow}>
               <InputText
                 name="houseNumber"
-                onChange={handleHouseNumberChange}
+                onChange={handleFieldChange}
                 value={houseNumber}
                 placeholder="House number"
               />
             </div>
-            <Button type="submit">Find</Button>
+            <Button type="submit" loading={loading}>Find</Button>
           </fieldset>
         </form>
+        {loading && <div>Loading addresses...</div>}
         {addresses.length > 0 &&
           addresses.map((address) => {
             return (
@@ -132,7 +141,9 @@ function App() {
                 name="selectedAddress"
                 id={address.id}
                 key={address.id}
-                onChange={handleSelectedAddressChange}
+                value={address.id}
+                onChange={handleFieldChange}
+                checked={selectedAddress === address.id}
               >
                 <Address {...address} />
               </Radio>
@@ -147,7 +158,7 @@ function App() {
                 <InputText
                   name="firstName"
                   placeholder="First name"
-                  onChange={handleFirstNameChange}
+                  onChange={handleFieldChange}
                   value={firstName}
                 />
               </div>
@@ -155,7 +166,7 @@ function App() {
                 <InputText
                   name="lastName"
                   placeholder="Last name"
-                  onChange={handleLastNameChange}
+                  onChange={handleFieldChange}
                   value={lastName}
                 />
               </div>
@@ -164,15 +175,19 @@ function App() {
           </form>
         )}
 
-        {/* TODO: Create an <ErrorMessage /> component for displaying an error message */}
-        {error && <div className="error">{error}</div>}
+        <ErrorMessage message={error || ""} />
 
-        {/* TODO: Add a button to clear all form fields. 
-        Button must look different from the default primary button, see design. 
-        Button text name must be "Clear all fields"
-        On Click, it must clear all form fields, remove all search results and clear all prior
-        error messages
-        */}
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={() => {
+            clearFields();
+            setAddresses([]);
+            setError(undefined);
+          }}
+        >
+          Clear all fields
+        </Button>
       </Section>
 
       <Section variant="dark">

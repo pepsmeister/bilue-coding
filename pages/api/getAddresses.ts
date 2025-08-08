@@ -26,27 +26,24 @@ export default async function handle(
     });
   }
 
-  /** TODO: Implement the validation logic to ensure input value
-   *  is all digits and non negative
-   */
   const isStrictlyNumeric = (value: string) => {
+    // Check if value is a non-empty string of digits only (no negative sign, no decimals)
+    return /^\d+$/.test(value);
+  };
+
+  const validateNumericField = (value: string, label: string) => {
+    if (!isStrictlyNumeric(value)) {
+      res.status(400).send({
+        status: "error",
+        errormessage: `${label} must be all digits and non negative!`,
+      });
+      return false;
+    }
     return true;
   };
 
-  /** TODO: Refactor the code below so there is no duplication of logic for postCode/streetNumber digit checks. */
-  if (!isStrictlyNumeric(postcode as string)) {
-    return res.status(400).send({
-      status: "error",
-      errormessage: "Postcode must be all digits and non negative!",
-    });
-  }
-
-  if (!isStrictlyNumeric(streetnumber as string)) {
-    return res.status(400).send({
-      status: "error",
-      errormessage: "Street Number must be all digits and non negative!",
-    });
-  }
+  if (!validateNumericField(postcode as string, "Postcode")) return;
+  if (!validateNumericField(streetnumber as string, "Street Number")) return;
 
   const mockAddresses = generateMockAddresses(
     postcode as string,
